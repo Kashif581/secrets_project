@@ -13,6 +13,7 @@ const port = 3000;
 const saltRounds = 10;
 env.config();
 
+//////////////SAVE USER SESSIONS////////////////////////
 app.use(
   session({
     secret: process.env.SESSION_SECRET,
@@ -26,6 +27,7 @@ app.use(express.static("public"));
 app.use(passport.initialize());
 app.use(passport.session());
 
+//////////////// CONNECTING TO DATABASE /////////////////////
 const db = new pg.Client({
   user: process.env.PG_USER,
   host: process.env.PG_HOST,
@@ -35,18 +37,22 @@ const db = new pg.Client({
 });
 db.connect();
 
+///////////////// HOME PAGE /////////////////////
 app.get("/", (req, res) => {
   res.render("home.ejs");
 });
 
+//////////////// lOGIN PAGE ////////////////////
 app.get("/login", (req, res) => {
   res.render("login.ejs");
 });
 
+////////////// REGISTER PAGE ///////////////////
 app.get("/register", (req, res) => {
   res.render("register.ejs");
 });
 
+///////////// LOGOUT PAGE //////////////////////
 app.get("/logout", (req, res) => {
   req.logout(function (err) {
     if (err) {
@@ -56,9 +62,9 @@ app.get("/logout", (req, res) => {
   });
 });
 
+////////// SECRET ROUTE ////////////////////////
 app.get("/secrets", async (req, res) => {
     if (req.isAuthenticated()) {
-      res.render("secrets.ejs");
       try {
         const result = await db.query(`SELECT secret FROM users WHERE email = $1`, [req.user.email])
         const secret = result.rows[0].secret
@@ -74,23 +80,22 @@ app.get("/secrets", async (req, res) => {
         
       }
 
-    //TODO: Update this to pull in the user secret to render in secrets.ejs
   } else {
     res.redirect("/login");
   }
 });
 
-//TODO: Add a get route for the submit button
-//Think about how the logic should work with authentication.
-app.get("/submit", (req, res) =>{
+////////////////SUBMIT GET ROUTE/////////////////
+app.get("/submit", function (req, res) {
   if (req.isAuthenticated()) {
-    res.render("/submit.ejs")
+    res.render("submit.ejs");
   } else {
-    res.redirect("/login")
+    res.redirect("/login");
   }
+});
 
-})
 
+///////// AUTH USING GOOGLE ////////////////
 app.get(
   "/auth/google",
   passport.authenticate("google", {
@@ -106,6 +111,7 @@ app.get(
   })
 );
 
+/////// AUTH USER USING LOCAL //////////////
 app.post(
   "/login",
   passport.authenticate("local", {
@@ -114,6 +120,7 @@ app.post(
   })
 );
 
+///////////// REGISTER ROUTE /////////////////
 app.post("/register", async (req, res) => {
   const email = req.body.username;
   const password = req.body.password;
@@ -147,22 +154,26 @@ app.post("/register", async (req, res) => {
   }
 });
 
-//TODO: Create the post route for submit.
-//Handle the submitted data and add it to the database
 
-app.post("/secret", async (req, res) =>{
-  const secret = req.body.secret;
-
-  try{
-    await db.query("UPDATE users SET secret = $1 WHERE email = $2", [secret, req.user.email])
-    res.redirect("/secrets")
-
+////////////////SUBMIT POST ROUTE/////////////////
+app.post("/submit", async function (req, res) {
+  const submittedSecret = req.body.secret;
+  console.log(req.user);
+  try {
+    await db.query(`UPDATE users SET secret = $1 WHERE email = $2`, [
+      submittedSecret,
+      req.user.email,
+    ]);
+    res.redirect("/secrets");
   } catch (err) {
-    console.log(err)
-
+    console.log(err);
   }
-})
+});
 
+
+
+
+/////////////// LOCAL STRATGIES /////////////////////////
 passport.use(
   "local",
   new Strategy(async function verify(username, password, cb) {
@@ -194,6 +205,8 @@ passport.use(
   })
 );
 
+
+///////////// GOOGLE STRATIGE //////////////////
 passport.use(
   "google",
   new GoogleStrategy(
